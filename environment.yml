@@ -1,0 +1,15 @@
+name: event-recsys-mvp
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - pip
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - pip:
+    - implicit==0.7.2
+    - sentence-transformers>=3.2.0
+    - ipykernel
