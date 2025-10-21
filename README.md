@@ -69,9 +69,10 @@ event-recsys-mvp/
 │   ├── social.py               # Social-based recommendations
 │   └── hybrid.py               # Hybrid ensemble model
 ├── utils/
-│   ├── metrics.py              # MAP@200 implementation
+│   ├── metrics.py              # Evaluation metrics (Recall, Hit Rate, Contamination)
 │   ├── preprocessing.py        # Data preprocessing utilities
-│   └── temporal_split.py       # Temporal train/val split
+│   ├── temporal_split.py       # Temporal train/val split
+│   └── geo_filter.py           # Geographic filtering utilities
 ├── notebooks/
 │   └── experiments.ipynb       # Main experiments notebook
 ├── environment.yml
@@ -138,16 +139,17 @@ Temporal decay: `w = base_weight × exp(-0.01 × days_since_interaction)`
 
 ## 🔬 Methodology Summary
 
+**All models** use geographic pre-filtering: candidate events limited to top-K nearest based on user's median location (Haversine distance).
+
 ### Content-Based
-- Event embeddings: concatenation of categorical (K-means clusters), numerical (hour, weekday), and textual (paraphrase-multilingual-MiniLM-L12-v2) features
+- Event embeddings: categorical (K-means clusters) and numerical (hour, weekday) features
 - User embeddings: weighted average of positive interactions with temporal decay
 - Similarity: cosine distance
 
 ### Collaborative Filtering
 - Algorithm: Weighted Matrix Factorization (WMF)
 - Solver: Alternating Least Squares (WALS)
-- R ∈ {0,1}: 1 for positive signals, 0 otherwise
-- Hyperparameters: k=20 latent factors, λ=0.01 regularization, converge by tolerance
+- Hyperparameters: k=20 latent factors, λ=0.01 regularization
 
 ### Social
 - Friend graph analysis

@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
 from models.base import BaseRecommender
+from utils.geo_filter import GeoFilter
 
 
 class ContentBasedRecommender(BaseRecommender):
@@ -13,11 +14,13 @@ class ContentBasedRecommender(BaseRecommender):
         self,
         weight_purchase: float,
         weight_interested: float,
-        temporal_decay: float
+        temporal_decay: float,
+        geo_top_k: int,
     ):
         self.weight_purchase = weight_purchase
         self.weight_interested = weight_interested
         self.temporal_decay = temporal_decay
+        self.geo_top_k = geo_top_k
         self.scaler = StandardScaler()
 
         self.events = None
@@ -27,6 +30,7 @@ class ContentBasedRecommender(BaseRecommender):
         self.user_embeddings = None
         self.event_to_idx = None
         self.idx_to_event = None
+        self.geo_filter = None
 
     def fit(self, events: pd.DataFrame, train: pd.DataFrame, event_attendees: pd.DataFrame):
         self.events = events
@@ -35,6 +39,8 @@ class ContentBasedRecommender(BaseRecommender):
 
         self.event_to_idx = {e: i for i, e in enumerate(events["event_id"])}
         self.idx_to_event = {i: e for e, i in self.event_to_idx.items()}
+
+        self.geo_filter = GeoFilter(events, train)
 
         self._build_event_embeddings()
         self._build_user_embeddings()
@@ -120,14 +126,19 @@ class ContentBasedRecommender(BaseRecommender):
         if user_emb is None:
             return []
 
-        similarities = cosine_similarity([user_emb], self.event_embeddings)[0]
+        candidate_events = self.geo_filter.get_nearby_events(
+            user_id,
+            top_k=self.geo_top_k,
+            exclude_seen=exclude_seen
+        )
 
-        if exclude_seen:
-            seen_events = set(self.train[self.train["user"] == user_id]["event"])
-            for event in seen_events:
-                event_idx = self.event_to_idx.get(event)
-                if event_idx is not None:
-                    similarities[event_idx] = -np.inf
+        candidate_indices = [self.event_to_idx[e] for e in candidate_events if e in self.event_to_idx]
 
-        top_indices = np.argsort(similarities)[::-1][:n]
-        return [self.idx_to_event[idx] for idx in top_indices]
+        if not candidate_indices:
+            return []
+
+        candidate_embeddings = self.event_embeddings[candidate_indices]
+        similarities = cosine_similarity([user_emb], candidate_embeddings)[0]
+
+        top_positions = np.argsort(similarities)[::-1][:n]
+        return [candidate_events[candidate_indices.index(candidate_indices[pos])] for pos in top_positions]
