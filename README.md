@@ -14,16 +14,12 @@ Implementation of three recommendation approaches for event discovery, evaluated
 - **Collaborative Filtering**: Weighted Matrix Factorization (WMF) with WALS
 - **Social Recommendation**: Friend-based collaborative filtering
 
-## 📊 Results
+## 📊 Evaluation Metrics
 
-| Method | MAP@200 |
-|--------|---------|
-| Content-Based | TBD |
-| Collaborative Filtering | TBD |
-| Social | TBD |
-| **Hybrid** | **TBD** |
-
-*Baseline: 0.51382 | Competition Winner: 0.72809*
+Models are evaluated using:
+- **Recall@K**: Coverage of user's interested events in top-K recommendations
+- **Hit Rate@K**: Percentage of users with at least one correct recommendation
+- **Contamination@K**: Percentage of recommendations that user marked as "not interested"
 
 ## 🚀 Quick Start
 
@@ -55,8 +51,8 @@ jupyter notebook notebooks/experiments.ipynb
 
 **Evaluation Approach:** This implementation uses a **temporal train/validation split** on `train.csv`:
 - Each user's interactions are sorted by timestamp
-- 70% oldest interactions → training set
-- 30% newest interactions → validation set (with labels)
+- 50% oldest interactions → training set
+- 50% newest interactions → validation set (with labels)
 - **Note:** This simulates predicting future events for known users, which differs from the original competition objective (cold start for new users)
 
 ## 📁 Project Structure
@@ -163,9 +159,15 @@ Temporal decay: `w = base_weight × exp(-0.01 × days_since_interaction)`
 
 ## 📈 Evaluation
 
-**Primary Metric:** Mean Average Precision @ 200 (MAP@200)
+Models are evaluated on a temporal train/validation split where:
+- Training uses 50% oldest user interactions
+- Validation uses 50% newest user interactions
+- Only users with at least one label (interested or not_interested) in validation are evaluated
 
-MAP@200 measures ranking quality considering both precision and order of recommendations.
+**Metrics:**
+- **Recall@K**: What percentage of the user's interested events were found in top-K?
+- **Hit Rate@K**: What percentage of users received at least one good recommendation?
+- **Contamination@K**: What percentage of recommendations were events users marked as not interested?
 
 ## 🛠️ Tech Stack
 
