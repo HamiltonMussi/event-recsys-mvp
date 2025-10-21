@@ -51,51 +51,64 @@ class ContentBasedRecommender(BaseRecommender):
 
     def _build_user_embeddings(self):
         users = self.train["user"].unique()
-        n_users = len(users)
         n_features = self.event_embeddings.shape[1]
 
         self.user_embeddings = {}
 
-        purchases = self.event_attendees[self.event_attendees["yes"].notna()].copy()
-        purchases["yes"] = purchases["yes"].str.split()
-        purchase_pairs = purchases.explode("yes")[["event", "yes"]].rename(columns={"yes": "user"})
+        purchases = self.event_attendees[self.event_attendees["yes"].notna()][["event", "yes"]]
+        purchase_pairs = purchases.assign(yes=purchases["yes"].str.split()).explode("yes")
+        purchase_pairs = purchase_pairs.rename(columns={"yes": "user"})
 
-        train_copy = self.train.copy()
-        train_copy["timestamp"] = pd.to_datetime(train_copy["timestamp"], errors="coerce")
-        reference_date = train_copy["timestamp"].max().timestamp()
+        purchases_grouped = purchase_pairs.groupby("user")["event"].apply(list).to_dict()
+
+        train_with_ts = self.train[self.train["interested"] == 1].copy()
+        train_with_ts["timestamp"] = pd.to_datetime(train_with_ts["timestamp"], errors="coerce")
+        reference_date = train_with_ts["timestamp"].max().timestamp()
+
+        train_with_ts["timestamp_unix"] = train_with_ts["timestamp"].apply(
+            lambda x: x.timestamp() if pd.notna(x) else reference_date
+        )
+        train_with_ts["days_since"] = (reference_date - train_with_ts["timestamp_unix"]) / 86400
+        train_with_ts["decay"] = np.exp(-self.temporal_decay * train_with_ts["days_since"])
+
+        interactions_grouped = train_with_ts.groupby("user")
 
         for user in users:
-            user_interactions = train_copy[
-                (train_copy["user"] == user) & (train_copy["interested"] == 1)
-            ].copy()
-
-            user_purchases = purchase_pairs[purchase_pairs["user"] == user].copy()
-
             weighted_embedding = np.zeros(n_features)
             total_weight = 0.0
 
-            for _, row in user_interactions.iterrows():
-                event_idx = self.event_to_idx.get(row["event"])
-                if event_idx is None:
-                    continue
+            if user in interactions_grouped.groups:
+                user_data = interactions_grouped.get_group(user)
 
-                timestamp = row["timestamp"].timestamp() if pd.notna(row["timestamp"]) else reference_date
-                days_since = (reference_date - timestamp) / 86400
-                decay = np.exp(-self.temporal_decay * days_since)
-                weight = self.weight_interested * decay
+                event_ids = user_data["event"].values
+                event_indices = np.array([self.event_to_idx.get(e, -1) for e in event_ids])
+                valid_mask = event_indices >= 0
 
-                weighted_embedding += weight * self.event_embeddings[event_idx]
-                total_weight += weight
+                if valid_mask.any():
+                    valid_indices = event_indices[valid_mask]
+                    decays = user_data["decay"].values[valid_mask]
+                    weights = self.weight_interested * decays
 
-            for _, row in user_purchases.iterrows():
-                event_idx = self.event_to_idx.get(row["event"])
-                if event_idx is None:
-                    continue
+                    weighted_embedding += np.sum(
+                        self.event_embeddings[valid_indices] * weights[:, np.newaxis],
+                        axis=0
+                    )
+                    total_weight += np.sum(weights)
 
-                weight = self.weight_purchase
+            if user in purchases_grouped:
+                user_purchase_events = purchases_grouped[user]
+                event_indices = np.array([self.event_to_idx.get(e, -1) for e in user_purchase_events])
+                valid_mask = event_indices >= 0
 
-                weighted_embedding += weight * self.event_embeddings[event_idx]
-                total_weight += weight
+                if valid_mask.any():
+                    valid_indices = event_indices[valid_mask]
+                    weight = self.weight_purchase * len(valid_indices)
+
+                    weighted_embedding += np.sum(
+                        self.event_embeddings[valid_indices] * self.weight_purchase,
+                        axis=0
+                    )
+                    total_weight += weight
 
             if total_weight > 0:
                 self.user_embeddings[user] = weighted_embedding / total_weight

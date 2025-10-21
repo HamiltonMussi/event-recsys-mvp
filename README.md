@@ -36,51 +36,48 @@ cd event-recsys-mvp
 
 # Create conda environment
 conda env create -f environment.yml
-conda activate event-recsys
+conda activate event-recsys-mvp
 ```
 
 ### Dataset Setup
 
 1. Download from [Kaggle Event Recommendation Challenge](https://www.kaggle.com/c/event-recommendation-engine-challenge)
 2. Place files in `data/raw/`:
-   - `train.csv`, `test.csv`
+   - `train.csv`
    - `events.csv`, `users.csv`
    - `user_friends.csv`, `event_attendees.csv`
 
 ### Run Experiments
 
 ```bash
-# Preprocess data
-python scripts/preprocess.py
-
-# Train individual models
-python experiments/run_content_based.py
-python experiments/run_collaborative.py
-python experiments/run_social.py
-
-# Train hybrid model
-python experiments/run_hybrid.py
+jupyter notebook notebooks/experiments.ipynb
 ```
+
+**Evaluation Approach:** This implementation uses a **temporal train/validation split** on `train.csv`:
+- Each user's interactions are sorted by timestamp
+- 70% oldest interactions → training set
+- 30% newest interactions → validation set (with labels)
+- **Note:** This simulates predicting future events for known users, which differs from the original competition objective (cold start for new users)
 
 ## 📁 Project Structure
 
 ```
 event-recsys-mvp/
 ├── data/
-│   ├── raw/              # Kaggle dataset
-│   └── processed/        # Preprocessed data
+│   ├── raw/                    # Kaggle dataset
+│   └── processed/              # Preprocessed data (generated)
 ├── models/
-│   ├── content_based.py
-│   ├── collaborative.py
-│   ├── social.py
-│   └── hybrid.py
+│   ├── base.py                 # Base recommender interface
+│   ├── content_based.py        # Content-based filtering
+│   ├── collaborative.py        # Collaborative filtering (WMF)
+│   ├── social.py               # Social-based recommendations
+│   └── hybrid.py               # Hybrid ensemble model
 ├── utils/
-│   ├── metrics.py        # MAP@200 implementation
-│   └── preprocessing.py
-├── experiments/
-│   └── results/
+│   ├── metrics.py              # MAP@200 implementation
+│   ├── preprocessing.py        # Data preprocessing utilities
+│   └── temporal_split.py       # Temporal train/val split
 ├── notebooks/
-│   └── eda.ipynb
+│   └── experiments.ipynb       # Main experiments notebook
 ├── environment.yml
 └── README.md
 ```
