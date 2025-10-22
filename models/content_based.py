@@ -1,10 +1,7 @@
 import numpy as np
 import pandas as pd
-from typing import List, Optional
-from pathlib import Path
-from sklearn.preprocessing import StandardScaler
+from typing import List
 from sklearn.metrics.pairwise import cosine_similarity
-from datetime import datetime
 from models.base import BaseRecommender
 from utils.geo_filter import GeoFilter
 
@@ -21,7 +18,6 @@ class ContentBasedRecommender(BaseRecommender):
         self.weight_interested = weight_interested
         self.temporal_decay = temporal_decay
         self.geo_top_k = geo_top_k
-        self.scaler = StandardScaler()
 
         self.events = None
         self.train = None
@@ -47,12 +43,25 @@ class ContentBasedRecommender(BaseRecommender):
 
     def _build_event_embeddings(self):
         cat_features = pd.get_dummies(self.events["event_category"], prefix="cat")
-        num_features = self.events[["hour", "weekday"]].fillna(0)
-        num_features_scaled = self.scaler.fit_transform(num_features)
+
+        weekday_category = self.events["weekday"].apply(
+            lambda x: "weekend" if x >= 4 else "weekday" if pd.notna(x) else "unknown"
+        )
+        weekday_features = pd.get_dummies(weekday_category, prefix="weekday")
+
+        hour_category = pd.cut(
+            self.events["hour"],
+            bins=[0, 6, 12, 18, 24],
+            labels=["madrugada", "manha", "tarde", "noite"],
+            include_lowest=True,
+            right=False
+        )
+        hour_features = pd.get_dummies(hour_category, prefix="hour")
 
         self.event_embeddings = np.hstack([
             cat_features.values,
-            num_features_scaled
+            weekday_features.values,
+            hour_features.values
         ])
 
     def _build_user_embeddings(self):
