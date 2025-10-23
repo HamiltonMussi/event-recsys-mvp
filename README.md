@@ -1,6 +1,6 @@
 # Event RecSys MVP
 
-> MVP of a hybrid event recommendation system comparing Content-Based, Collaborative Filtering (WMF), and Social approaches using Kaggle's Event Recommendation Challenge dataset. Evaluated with MAP@200.
+> MVP of a hybrid event recommendation system comparing Content-Based, Collaborative Filtering (WMF), and Social approaches using Kaggle's Event Recommendation Challenge dataset. Evaluated with Recall@200, Hit Rate@200, and Contamination@200.
 
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -46,7 +46,11 @@ conda activate event-recsys-mvp
 ### Run Experiments
 
 ```bash
-jupyter notebook notebooks/experiments.ipynb
+# Run individual model notebooks
+jupyter notebook notebooks/content_based.ipynb
+jupyter notebook notebooks/collaborative.ipynb
+jupyter notebook notebooks/social.ipynb
+jupyter notebook notebooks/hybrid.ipynb
 ```
 
 **Evaluation Approach:** This implementation uses a **temporal train/validation split** on `train.csv`:
@@ -74,7 +78,10 @@ event-recsys-mvp/
 │   ├── temporal_split.py       # Temporal train/val split
 │   └── geo_filter.py           # Geographic filtering utilities
 ├── notebooks/
-│   └── experiments.ipynb       # Main experiments notebook
+│   ├── content_based.ipynb     # Content-based filtering experiments
+│   ├── collaborative.ipynb     # Collaborative filtering experiments
+│   ├── social.ipynb            # Social recommendation experiments
+│   └── hybrid.ipynb            # Hybrid ensemble experiments
 ├── environment.yml
 └── README.md
 ```
@@ -116,9 +123,9 @@ event-recsys-mvp/
 #### WMF Weights (Collaborative Filtering)
 
 Matrix W (confidence weights):
-- Ticket purchase (yes): **100.0**
-- Swipe right (interested): **10.0**
-- Swipe left (not_interested): **1.0**
+- Ticket purchase (yes): **3.0**
+- Swipe right (interested): **1.0**
+- Swipe left (not_interested): **0.5**
 - Not seen (no record): **0.1**
 
 Matrix R (observed preference):
@@ -149,15 +156,17 @@ Temporal decay: `w = base_weight × exp(-0.01 × days_since_interaction)`
 ### Collaborative Filtering
 - Algorithm: Weighted Matrix Factorization (WMF)
 - Solver: Alternating Least Squares (WALS)
-- Hyperparameters: k=20 latent factors, λ=0.01 regularization
+- Hyperparameters: k=10 latent factors, λ=0.01 regularization, geo_top_k=3000
 
 ### Social
-- Friend graph analysis
-- Events ranked by friend engagement (interested, attending)
+- Friend graph analysis (unidirectional "following" relationships)
+- Events ranked by friend engagement (interested: 1.0, attending: 2.0)
+- No geographic filtering (friend network naturally limits candidates)
 
 ### Hybrid
-- Weighted ensemble: `score = 0.3×CB + 0.3×CF + 0.4×Social`
-- Min-max normalization per component
+- Weighted ensemble: `score = w_cb×CB_norm + w_cf×CF_norm + w_social×Social_norm`
+- Min-max normalization per component [0, 1]
+- Weight tuning experiments to find optimal combination
 
 ## 📈 Evaluation
 
@@ -175,8 +184,7 @@ Models are evaluated on a temporal train/validation split where:
 
 - Python 3.8+
 - numpy, pandas, scipy, scikit-learn
-- implicit (ALS implementation)
-- sentence-transformers (text embeddings)
+- implicit (ALS implementation for Collaborative Filtering)
 
 ## 📚 References
 
