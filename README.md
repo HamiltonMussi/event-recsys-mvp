@@ -155,7 +155,7 @@ Temporal decay: `w = base_weight × exp(-0.01 × days_since_interaction)`
 
 ### Collaborative Filtering
 - Algorithm: Weighted Matrix Factorization (WMF)
-- Solver: Alternating Least Squares (WALS)
+- Solver: Alternating Least Squares (ALS)
 - Hyperparameters: k=10 latent factors, λ=0.01 regularization, geo_top_k=3000
 
 ### Social
